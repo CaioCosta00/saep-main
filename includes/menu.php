@@ -3,6 +3,7 @@ $pagina = basename($_SERVER['PHP_SELF']);
 $ativo = function ($prefixo) use ($pagina) {
     return strpos($pagina, $prefixo) === 0 ? 'active' : '';
 };
+$menuAdmin = ($_SESSION["tipo_usuario"] ?? "") === "administrador";
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -36,5 +37,13 @@ $ativo = function ($prefixo) use ($pagina) {
             <a href="estoque.php"       class="nav-link <?= $ativo('estoque') ?>">📋 Verificar Estoque</a>
             <a href="movimentacoes.php" class="nav-link <?= $ativo('movimentac') ?>">🔄 Movimentações</a>
             <a href="saidas.php"        class="nav-link <?= $ativo('saidas') ?>">📤 Saídas</a>
+            <?php if ($menuAdmin): ?>
+                <a href="usuarios.php"  class="nav-link <?= $ativo('usuario') ?>">👥 Usuários</a>
+            <?php endif; ?>
         </nav>
+        <div class="p-3 border-t border-gray-700">
+            <p class="text-white text-sm font-semibold truncate">👤 <?= htmlspecialchars($_SESSION["nome"] ?? "") ?></p>
+            <p class="text-gray-500 text-xs mb-2"><?= $menuAdmin ? "Administrador" : "Operador" ?></p>
+            <a href="login.php?sair=1" class="nav-link">🚪 Sair</a>
+        </div>
     </aside>

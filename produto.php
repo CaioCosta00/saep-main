@@ -2,9 +2,28 @@
 session_start();
 require_once __DIR__ . '/conexao.php';
 
+
+$logado = false;
+if (!empty($_SESSION["id_user"]) && time() - ($_SESSION["ultimo_acesso"] ?? 0) <= 1800) {
+    $st = $pdo->prepare("SELECT id_user, nome, tipo_usuario FROM `user` WHERE id_user = ?");
+    $st->execute([$_SESSION["id_user"]]);
+    $logado = $st->fetch();
+}
+if (!$logado || !in_array($logado["tipo_usuario"], ["operador", "administrador"], true)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?expirou=1");
+    exit;
+}
+$_SESSION["nome"]          = $logado["nome"];
+$_SESSION["tipo_usuario"]  = $logado["tipo_usuario"];
+$_SESSION["ultimo_acesso"] = time();
+$ehAdmin = $logado["tipo_usuario"] === "administrador";
+
+
 $st = $pdo->prepare("SELECT * FROM produto WHERE id_produto = :id");
 $st->execute(["id" => $_GET["id"] ?? 0]);
-$produto = $st->fetch();          // false se não encontrou
+$produto = $st->fetch();         
 
 require_once __DIR__ . '/includes/menu.php';
 ?>
@@ -49,6 +68,7 @@ require_once __DIR__ . '/includes/menu.php';
 
                     <div class="flex gap-2">
                         <a href="movimentacao_form.php?id_produto=<?= $produto["id_produto"] ?>" class="bg-senai-blue text-white font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-senai-blue-dark transition">🔄 Movimentar estoque</a>
+                        <a href="produto_form.php?id=<?= $produto["id_produto"] ?>" class="bg-senai-orange text-white font-bold px-5 py-2.5 rounded-lg text-sm hover:bg-orange-600 transition">✏️ Editar</a>
                         <a href="produtos.php" class="bg-gray-100 text-gray-600 font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-gray-200 transition">Voltar</a>
                     </div>
                 </div>

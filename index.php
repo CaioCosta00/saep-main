@@ -1,6 +1,26 @@
 <?php
 session_start();
 require_once __DIR__ . '/conexao.php';
+
+
+$logado = false;
+if (!empty($_SESSION["id_user"]) && time() - ($_SESSION["ultimo_acesso"] ?? 0) <= 1800) {
+    $st = $pdo->prepare("SELECT id_user, nome, tipo_usuario FROM `user` WHERE id_user = ?");
+    $st->execute([$_SESSION["id_user"]]);
+    $logado = $st->fetch();
+}
+if (!$logado || !in_array($logado["tipo_usuario"], ["operador", "administrador"], true)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?expirou=1");
+    exit;
+}
+$_SESSION["nome"]          = $logado["nome"];
+$_SESSION["tipo_usuario"]  = $logado["tipo_usuario"];
+$_SESSION["ultimo_acesso"] = time();
+$ehAdmin = $logado["tipo_usuario"] === "administrador";
+
+
 require_once __DIR__ . '/includes/menu.php';
 
 $sql = "SELECT
@@ -25,6 +45,14 @@ $cards = [
         </div>
 
         <div class="p-6 flex-1">
+
+            <?php if (isset($_GET["negado"])): ?>
+                <div class="bg-red-50 border border-red-300 text-red-700 rounded-lg p-3 mb-5 flex items-center gap-2 text-sm">
+                    <span class="font-bold text-base">!</span>
+                    <span>Acesso negado: esta área é exclusiva de administradores.</span>
+                    <button onclick="this.parentElement.remove()" class="ml-auto text-red-400 hover:text-red-700 text-lg leading-none">×</button>
+                </div>
+            <?php endif; ?>
 
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <?php foreach ($cards as $c): ?>

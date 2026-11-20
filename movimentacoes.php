@@ -2,21 +2,44 @@
 session_start();
 require_once __DIR__ . '/conexao.php';
 
+$logado = false;
+if (!empty($_SESSION["id_user"]) && time() - ($_SESSION["ultimo_acesso"] ?? 0) <= 1800) {
+    $st = $pdo->prepare("SELECT id_user, nome, tipo_usuario FROM `user` WHERE id_user = ?");
+    $st->execute([$_SESSION["id_user"]]);
+    $logado = $st->fetch();
+}
+if (!$logado || !in_array($logado["tipo_usuario"], ["operador", "administrador"], true)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?expirou=1");
+    exit;
+}
+$_SESSION["nome"]          = $logado["nome"];
+$_SESSION["tipo_usuario"]  = $logado["tipo_usuario"];
+$_SESSION["ultimo_acesso"] = time();
+$ehAdmin = $logado["tipo_usuario"] === "administrador";
+
 $sucesso = "";
 $erro = "";
 
 if (isset($_GET["excluir"])) {
-    $st = $pdo->prepare("DELETE FROM movimentacao WHERE id_movimentacao = ?");
-    $st->execute([$_GET["excluir"]]);
-    if ($st->rowCount() > 0) {
-        $sucesso = "Movimentação removida com sucesso!";
+    if (!$ehAdmin) {
+        http_response_code(403);
+        $erro = "Acesso negado: apenas administradores podem excluir movimentações!";
     } else {
-        $erro = "Não foi possível encontrar a movimentação!";
+        $st = $pdo->prepare("DELETE FROM movimentacao WHERE id_movimentacao = ?");
+        $st->execute([(int) $_GET["excluir"]]);
+        if ($st->rowCount() > 0) {
+            $sucesso = "Movimentação removida com sucesso!";
+        } else {
+            $erro = "Não foi possível encontrar a movimentação!";
+        }
     }
 }
 if (isset($_GET["salvo"])) {
     $sucesso = $_GET["salvo"] === "saida" ? "Saída executada com sucesso!" : "Entrada executada com sucesso!";
 }
+
 
 require_once __DIR__ . '/includes/menu.php';
 
@@ -66,13 +89,15 @@ $movimentacoes = $pdo->query($sql)->fetchAll();
                             <th class="px-4 py-3 text-center">Quantidade</th>
                             <th class="px-4 py-3 text-center">Data</th>
                             <th class="px-4 py-3 text-center">Usuário</th>
-                            <th class="px-4 py-3 text-center">Ações</th>
+                            <?php if ($ehAdmin): ?>
+                                <th class="px-4 py-3 text-center">Ações</th>
+                            <?php endif; ?>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
 
                     <?php if (!$movimentacoes): ?>
-                        <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">Nenhuma movimentação encontrada!</td></tr>
+                        <tr><td colspan="<?= $ehAdmin ? 6 : 5 ?>" class="px-4 py-6 text-center text-gray-400">Nenhuma movimentação encontrada!</td></tr>
                     <?php endif; ?>
 
                     <?php foreach ($movimentacoes as $m): ?>
@@ -88,11 +113,13 @@ $movimentacoes = $pdo->query($sql)->fetchAll();
                             <td class="px-4 py-3 text-center text-gray-600"><?= $m["quantidade"] ?></td>
                             <td class="px-4 py-3 text-center text-gray-600"><?= date("d/m/Y H:i", strtotime($m["datetime_movimentacao"])) ?></td>
                             <td class="px-4 py-3 text-center text-gray-600"><?= htmlspecialchars($m["usuario"] ?? "-") ?></td>
-                            <td class="px-4 py-3 text-center">
-                                <div class="flex items-center justify-center gap-1.5">
-                                    <a onclick="return confirm('Tem certeza disso?')" class="bg-senai-red text-white text-xs px-2.5 py-1.5 rounded-md hover:bg-red-700 transition" href="?excluir=<?= $m["id_movimentacao"] ?>">Excluir</a>
-                                </div>
-                            </td>
+                            <?php if ($ehAdmin): ?>
+                                <td class="px-4 py-3 text-center">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <a onclick="return confirm('Tem certeza disso?')" class="bg-senai-red text-white text-xs px-2.5 py-1.5 rounded-md hover:bg-red-700 transition" href="?excluir=<?= $m["id_movimentacao"] ?>">Excluir</a>
+                                    </div>
+                                </td>
+                            <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
 
