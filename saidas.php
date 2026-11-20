@@ -1,6 +1,25 @@
 <?php
 session_start();
 require_once __DIR__ . '/conexao.php';
+
+// ---------- 1. Autenticação (rota privada) ----------
+$logado = false;
+if (!empty($_SESSION["id_user"]) && time() - ($_SESSION["ultimo_acesso"] ?? 0) <= 1800) {
+    $st = $pdo->prepare("SELECT id_user, nome, tipo_usuario FROM `user` WHERE id_user = ?");
+    $st->execute([$_SESSION["id_user"]]);
+    $logado = $st->fetch();
+}
+if (!$logado || !in_array($logado["tipo_usuario"], ["operador", "administrador"], true)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?expirou=1");
+    exit;
+}
+$_SESSION["nome"]          = $logado["nome"];
+$_SESSION["tipo_usuario"]  = $logado["tipo_usuario"];
+$_SESSION["ultimo_acesso"] = time();
+$ehAdmin = $logado["tipo_usuario"] === "administrador";
+
 require_once __DIR__ . '/includes/menu.php';
 
 $sql = "SELECT m.quantidade, m.datetime_movimentacao, p.nome AS produto, u.nome AS usuario
